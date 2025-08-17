@@ -18,6 +18,7 @@ Run:
 """
 
 import sys
+import os
 import math
 import random
 import pygame
@@ -120,6 +121,121 @@ KICKS_I = {
     (0,3): [(0,0), (-1,0), (2,0), (-1,-2), (2,1)],
 }
 
+#high score file to display top 5 high scores
+HIGHSCORE_FILE = "highscores.txt"
+
+def load_highscores():
+    if not os.path.exists(HIGHSCORE_FILE):
+        return []
+    with open(HIGHSCORE_FILE, "r") as f:
+        scores = []
+        for line in f.readlines():
+            parts = line.strip().split(",")
+            if len(parts) == 2:
+                name, score = parts
+                scores.append((name, int(score)))
+        return scores
+
+def save_highscore(initials, score):
+    scores = load_highscores()
+    scores.append((initials, score))
+    scores = sorted(scores, key=lambda x: x[1], reverse=True)[:5]  # Top 5
+    with open(HIGHSCORE_FILE, "w") as f:
+        for name, s in scores:
+            f.write(f"{name},{s}\n")
+
+def enter_initials(screen, clock, font, font_small, score):
+    initials = ""
+    entering = True
+
+    while entering:
+        screen.fill((0, 0, 0))
+        prompt = font_small.render(f"New High Score! {score}", True, (255, 255, 0))
+        screen.blit(prompt, (200, 150))
+
+        entry_text = font_small.render("Enter your initials: " + initials, True, (255, 255, 255))
+        screen.blit(entry_text, (200, 250))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN and initials != "":
+                    entering = False
+                elif event.key == pygame.K_BACKSPACE:
+                    initials = initials[:-1]
+                elif len(initials) < 3 and event.unicode.isalpha():
+                    initials += event.unicode.upper()
+
+    return initials
+
+def show_highscores(screen, clock, font_small):
+    showing = True
+    scores = load_highscores()
+
+    while showing:
+        screen.fill((0, 0, 0))
+        title = font_small.render("High Scores - Press Enter to go back", True, (255, 255, 255))
+        screen.blit(title, (50, 50))
+
+        if not scores:
+            no_score_text = font_small.render("No scores yet!", True, (200, 200, 210))
+            screen.blit(no_score_text, (50, 120))
+        else:
+            for i, (name, score) in enumerate(scores):
+                text = font_small.render(f"{i+1}. {name} - {score}", True, (200, 200, 210))
+                screen.blit(text, (50, 120 + i*40))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
+                    showing = False
+
+def show_game_over_scores(screen, clock, font, font_small):
+    showing = True
+    scores = load_highscores()
+
+    while showing:
+        screen.fill((0, 0, 0))
+        t = font.render("Game Over", True, TEXT)
+        screen.blit(t, (WIDTH//2 - t.get_width()//2, HEIGHT//2 - t.get_height()))
+        t2 = font_small.render("Press R to restart, Q/Esc to quit", True, TEXT)
+        screen.blit(t2, (WIDTH//2 - t2.get_width()//2, HEIGHT//2 + 10))
+        #title = font_small.render("Game over! High Scores - Press R to restart or Q to quit", True, (255, 255, 255))
+        #screen.blit(title, (50, 50))
+
+        if not scores:
+            no_score_text = font_small.render("No scores yet!", True, (200, 200, 210))
+            screen.blit(no_score_text, (50, 120))
+        else:
+            for i, (name, score) in enumerate(scores):
+                text = font_small.render(f"{i+1}. {name} - {score}", True, (200, 200, 210))
+                screen.blit(text, (50, 120 + i*40))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_q:
+                    pygame.quit()
+                    sys.exit()
+                elif event.key == K_r:
+                    main()
+
 # 7-bag randomizer
 def bag_generator():
     pieces = list(PIECES.keys())
@@ -131,7 +247,7 @@ def bag_generator():
 def main_menu(screen, clock, font_large, font_small):
     menu_running = True
     selected = 0
-    options = ["Start Game", "Controls", "Quit"]
+    options = ["Start Game", "High Scores", "Controls", "Quit"]
 
     while menu_running:
         screen.fill((0, 0, 0))
@@ -161,6 +277,8 @@ def main_menu(screen, clock, font_large, font_small):
                         menu_running = False
                     elif options[selected] == "Controls":
                         show_controls(screen, clock, font_small)
+                    elif options[selected] =="High Scores":
+                        show_highscores(screen, clock, font_small)
                     elif options[selected] == "Quit":
                         pygame.quit()
                         sys.exit()
@@ -283,6 +401,8 @@ class Game:
                         return
             # if still colliding, game over
             self.game_over = True
+            
+            
 
     def soft_drop(self):
         if not self.try_move(0, 1):
@@ -579,10 +699,18 @@ def main():
             s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             s.fill((0,0,0,140))
             screen.blit(s, (0,0))
-            t = font.render("Game Over", True, TEXT)
-            screen.blit(t, (WIDTH//2 - t.get_width()//2, HEIGHT//2 - t.get_height()))
-            t2 = font_small.render("Press R to restart, Q/Esc to quit", True, TEXT)
-            screen.blit(t2, (WIDTH//2 - t2.get_width()//2, HEIGHT//2 + 10))
+
+            # --- High score logic ---
+            scores = load_highscores()
+            # Check if qualifies for leaderboard
+            if len(scores) < 5 or game.score > scores[-1][1]:
+                initials = enter_initials(screen, clock, font, font_small, game.score)
+                save_highscore(initials, game.score)
+                game.score = 0
+            
+            show_game_over_scores(screen, clock, font, font_small)
+
+
 
         pygame.display.flip()
 
